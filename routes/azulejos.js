@@ -33,7 +33,7 @@ router.post('/', function(req,res,next){
                         "type":"Point", 
                         "coordinates": [req.body.lng,req.body.lat]},
                     "$minDistance": 0,
-                    "$maxDistance": 10000
+                    "$maxDistance": 5000
                 }
             }
         }).toArray(function(findErr, docs) {
