@@ -12,9 +12,8 @@ router.get('/', function(req, res, next) {
         if(err) throw err;
 
         var db = client.db('app_azulejos');
-        db.collection('azulejos_info').find({}).toArray(function(findErr, docs) {
+        db.collection('azulejos_info').find({},{projection:{Nome:1}}).toArray(function(findErr, docs) {
             if(findErr) throw findErr;
-            console.log(JSON.stringify(docs));
             client.close();
             res.send({docs})
           });
@@ -39,7 +38,6 @@ router.post('/', function(req,res,next){
             }
         },{"Info": 0,"Ano": 0,"Condicao": 0}).toArray(function(findErr, docs) {//Not working
             if(findErr) throw findErr;
-            console.log(JSON.stringify(docs));
             client.close();
             res.send({docs})
           });
