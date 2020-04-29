@@ -1,20 +1,11 @@
 var express = require('express');
 var router = express.Router();
 var mongo = require('mongodb');
-var assert = require('assert');
+
 require('dotenv/config');
 var ObjectId = mongo.ObjectID;
-
-
-
-
-var path = require('path');
 var fs = require('fs');
-//
-const {google} = require('googleapis');
-
-var outDir = path.join(__dirname,"uploads");
-
+const https = require('https');
 
 // DEVOLVE NOME DOS AZULEJOS PARA AUTOCOMPLETE
 router.get('/:sessoes/azulejos/nome', function(req, res, next) {
@@ -36,10 +27,7 @@ router.get('/:sessoes/azulejos/nome', function(req, res, next) {
                 client.close();
                 res.send({docs})
               });
-        }
-
-        
-        
+        }  
     }) 
 });
 //DEVOLVE LOCALIZACAO DOS AZULEJOS ATE 5KM DA POSICAO DO UTILIZADOR
@@ -76,38 +64,7 @@ router.get('/sessoes/:id', function(req,res,next){
         db.collection("azulejos_info").findOne({"_id":marker}, function(findErr, doc){
             if(findErr) throw findErr;
             client.close();
-            require("../gdrive/gdrive-auth")((auth) => {
-                const drive = google.drive({version: 'v3', auth});
-                var pageToken = null;
-                drive.files.list({
-                    q: "mimeType='application/vnd.google-apps.folder' and name contains '"+req.params.id+"'",
-                    fields: 'nextPageToken, files(id)',
-                    spaces: 'drive',
-                    pageToken: pageToken
-                }).then((response)=>{
-                    console.log(response.data.files[0].id)
-                    drive.files.list({
-                        q: `'${response.data.files[0].id}' in parents`,
-                        fields: 'nextPageToken, files(id, name)',
-                        spaces: 'drive',
-                        pageToken: pageToken
-                      }).then((response)=> {
-                            var filePath = './temporary_uploads/'+response.data.files[0].name
-                            var dest = fs.createWriteStream(filePath);
-                            drive.files.get({fileId: response.data.files[0].id,alt: 'media'},{responseType: 'stream'}).then((response)=>{
-                                response.data.on('end', function () {
-                                    var bitmap = fs.readFileSync(filePath, { encoding: 'base64' });
-                                    console.log('Done');
-                                    doc['file'] = bitmap;
-                                    res.send(doc);
-                                    }).on('error', function (err) {
-                                    console.log('Error during download', err);
-                                    }).pipe(dest);
-                            })
-                      });
-                });
-                
-            });
+            res.send(doc)
         })          
     })
 })
@@ -130,8 +87,9 @@ router.get('/:id', function(req,res,next){
 })
 router.post('/sessoes/azulejos', function(req,res,next){   
     const imageBuffer = new Buffer(req.body.file, "base64");
-    const filePath = "./temporary_uploads/"+req.body.nome+".jpg";
-    fs.writeFileSync(filePath, imageBuffer);
+    const filePath = "./temporary_uploads/1.jpg";
+    fs.writeFileSync(filePath, imageBuffer); 
+
     var document = {
         "Nome": req.body.nome,
         "Ano": req.body.ano,
@@ -149,48 +107,40 @@ router.post('/sessoes/azulejos', function(req,res,next){
         db.collection("azulejos_info").insertOne(document, function(findErr, doc){
             if(findErr) throw findErr;
             client.close();
-            require("../gdrive/gdrive-auth")((auth) => {
-                const drive = google.drive({version: 'v3', auth});
-                var fileMetadata = {
-                    'name': doc.insertedId,
-                    'mimeType': 'application/vnd.google-apps.folder'
+            console.log(doc)
+            fs.readFile(filePath, function(err, data) {
+                if (err) throw err;
+              
+                var options = {
+                    'method': 'PUT',
+                    'hostname': 'storage.bunnycdn.com',
+                    'path': '/azulejos/'+doc.insertedId+'/1.jpg?AccessKey='+process.env.ACCESS_KEY,
+                    'headers': {
+                      'Content-Type': 'image/jpeg'
+                    } 
                   };
-                  drive.files.create({
-                    resource: fileMetadata,
-                    fields: 'id'
-                  }, function (err, file) {
-                    if (err) {
-                      // Handle error
-                      console.error(err);
-                      res.status(500).send('Aconteceu um erro interno ao guardar a fotografia. Tente novamente mais tarde.');
-                    } else {
-                        var folderId = file.data.id;
-                        var fileMetadata = {
-                            'name': 'file.jpg',
-                            parents: [folderId]
-                        };
-                        var media = {
-                            mimeType: 'image/jpeg',
-                            body: fs.createReadStream("./temporary_uploads/"+req.body.nome+".jpg")
-                        };
-                        drive.files.create({
-                            resource: fileMetadata,
-                            media: media,
-                            fields: 'id'
-                        }, function (err, file) {
-                            if (err) {
-                                // Handle error
-                                console.error(err);
-                                res.status(500).send('Aconteceu um erro interno ao guardar a fotografia. Tente novamente mais tarde.');
-                            } else {
-                                res.status(200).send('Submissão recebida');
-                            }
-                        });
-                    }
+                var reqBunny = https.request(options, function (resBunny) {
+                    var chunks = [];
+                  
+                    resBunny.on("data", function (chunk) { chunks.push(chunk); });
+                  
+                    resBunny.on("end", function (chunk) {
+                      var body = Buffer.concat(chunks);
+                      res.send(body.toString());
+
+                    });
+        
+                    resBunny.on("error", function (error) { res.send(error); });
                   });
-            });
+                reqBunny.write(data);
+                reqBunny.end();
+              });
         })          
     })
+})
+
+router.put('/teste',function(requestes,response,next){
+     
 })
 
 module.exports = router;
