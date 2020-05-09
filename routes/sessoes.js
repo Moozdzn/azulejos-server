@@ -139,6 +139,8 @@ router.post('/sessoes/azulejos', function(req,res,next){
     })
 })
 
+
+
 router.put('/teste',function(requestes,response,next){
      
 })
