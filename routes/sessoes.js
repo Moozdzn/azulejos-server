@@ -71,7 +71,7 @@ router.get('/sessoes/:id', function(req,res,next){
         db.collection("azulejos_info").findOne({"_id":marker}, function(findErr, doc){
             if(findErr) throw findErr;
             client.close();
-            https.get('https://storage.bunnycdn.com/azulejos/5eb98addcf6b403f84fe0c09/?AccessKey='+process.env.ACCESS_KEY, (response) => {
+            https.get('https://storage.bunnycdn.com/azulejos/'+req.params.id+'/?AccessKey='+process.env.ACCESS_KEY, (response) => {
         
             console.log('statusCode:', response.statusCode);
       
