@@ -89,7 +89,7 @@ router.get('/sessoes/azulejos', function (req, res, next) {
                         "coordinates": [parseFloat(req.query.lng),parseFloat(req.query.lat)]
                     },
                     "distanceField": "distance",
-                    "maxDistance": 5000,
+                    "maxDistance": req.query.radius*1000,
                     "spherical": true,
                 }
             }
@@ -138,10 +138,10 @@ router.get('/sessoes/:id', function (req, res, next) {
 
         } catch (e) {
             console.log("Discard");
-            res.sendStatus(404);
-        }
+            res.sendStatus(404); 
+        }  
 
-    })
+    }) 
 })
 // DEVOLVE INFORMACAO DA SESSAO
 router.get('/:id', function (req, res, next) {
@@ -237,7 +237,6 @@ router.get('/:id', function (req, res, next) {
 
 router.post('/sessoes', function (req, res, next) {
 
-    console.log(req.body.azulejos[1].Files.length);
 
     uploadPhotos(req.body.azulejos);
     mongo.connect(process.env.DB_CONNECTION, {
