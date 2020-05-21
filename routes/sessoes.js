@@ -63,23 +63,6 @@ router.get('/sessoes/azulejos', function (req, res, next) {
             throw err;
         
         var db = client.db('app_azulejos');
-        /* db.collection('azulejos_info').find({
-            "Localizacao":{
-                "$nearSphere":
-                {
-                    "$geometry": { 
-                        "type":"Point", 
-                        "coordinates": [parseFloat(req.query.lng),parseFloat(req.query.lat)]},
-                    "$minDistance": 0,
-                    "$maxDistance": 5000
-                }
-            }
-        },{"Info": 0,"Ano": 0,"Condicao": 0}).toArray(function(findErr, docs) {//Not working
-            if(findErr) throw findErr;
-            client.close();
-            res.send({docs})
-          }); */
-
         //const documents = await 
         db.collection('azulejos_info').aggregate([
             {
@@ -236,8 +219,6 @@ router.get('/:id', function (req, res, next) {
 
 
 router.post('/sessoes', function (req, res, next) {
-
-
     uploadPhotos(req.body.azulejos);
     mongo.connect(process.env.DB_CONNECTION, {
         useUnifiedTopology: true
@@ -251,6 +232,7 @@ router.post('/sessoes', function (req, res, next) {
 
         db.collection("azulejos_sessoes").insertOne({
             "_id": sessionID,
+            "data": new Date().toISOString(),
             "estado": req.body.sessao.estado,
             "info": req.body.sessao.info,
             "idAutor": userID,
