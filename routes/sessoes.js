@@ -22,6 +22,7 @@ router.get('/:sessoes/azulejos/nome', function (req, res, next) {
         if (err) 
             throw err;
         
+
         if (req.params.sessoes == "sessoes") {
             db.collection('azulejos_info').find({}, {
                 projection: {
@@ -31,6 +32,7 @@ router.get('/:sessoes/azulejos/nome', function (req, res, next) {
                 if (findErr) 
                     throw findErr;
                 
+
                 client.close();
                 res.send({docs})
             });
@@ -48,6 +50,7 @@ router.get('/:sessoes/azulejos/nome', function (req, res, next) {
                 if (findErr) 
                     throw findErr;
                 
+
                 client.close();
                 res.send({docs});
             });
@@ -62,25 +65,27 @@ router.get('/sessoes/azulejos', function (req, res, next) {
         if (err) 
             throw err;
         
+
         var db = client.db('app_azulejos');
-        //const documents = await 
-        db.collection('azulejos_info').aggregate([
-            {
+        // const documents = await
+        db.collection('azulejos_info').aggregate([{
                 "$geoNear": {
                     "near": {
                         "type": "Point",
-                        "coordinates": [parseFloat(req.query.lng),parseFloat(req.query.lat)]
+                        "coordinates": [
+                            parseFloat(req.query.lng),
+                            parseFloat(req.query.lat)
+                        ]
                     },
                     "distanceField": "distance",
-                    "maxDistance": req.query.radius*1000,
-                    "spherical": true,
+                    "maxDistance": req.query.radius * 1000,
+                    "spherical": true
                 }
-            }
-        ]).toArray(function (err, items) {
+            }]).toArray(function (err, items) {
             res.send(items);
             client.close();
         });;
-        //res.send(documents);
+        // res.send(documents);
     })
 })
 // DEVOLVE INFORMACAO DE UM UNICO AZULEJO
@@ -92,39 +97,43 @@ router.get('/sessoes/:id', function (req, res, next) {
         if (err) 
             throw err;
         
-        console.log(req.params.id)
-        try {
-            var marker = new ObjectId(req.params.id);
-            var db = client.db('app_azulejos');
 
-            db.collection("azulejos_info").findOne({
-                "_id": marker
-            }, function (findErr, doc) {
-                if (findErr) 
-                    throw findErr;
-                
-                client.close();
-                https.get('https://storage.bunnycdn.com/azulejos/' + req.params.id + '/?AccessKey=' + process.env.ACCESS_KEY, (response) => {
+        if (req.params.id != null) {
+            try {
+                var marker = new ObjectId(req.params.id);
+                var db = client.db('app_azulejos');
 
-                    console.log('statusCode:', response.statusCode);
+                db.collection("azulejos_info").findOne({
+                    "_id": marker
+                }, function (findErr, doc) {
+                    if (findErr) 
+                        throw findErr;
+                    
 
-                    response.on('data', (d) => {
-                        var json = JSON.parse(d.toString()).length
-                        doc['nrImages'] = json
-                        res.send(doc);
+                    client.close();
+                    https.get('https://storage.bunnycdn.com/azulejos/' + req.params.id + '/?AccessKey=' + process.env.ACCESS_KEY, (response) => {
+
+                        console.log('statusCode:', response.statusCode);
+
+                        response.on('data', (d) => {
+                            var json = JSON.parse(d.toString()).length
+                            doc['nrImages'] = json
+                            res.send(doc);
+                        });
+
+                    }).on('error', (e) => {
+                        console.error(e);
                     });
+                })
 
-                }).on('error', (e) => {
-                    console.error(e);
-                });
-            })
+            } catch (e) { // res.sendStatus(500).send({error:"Internal Server error"});
+            }
+        } else {
+            console.log('here')
+            res.sendStatus(404).send({error: "Tile id cannot be undefined"});
+        }
 
-        } catch (e) {
-            console.log("Discard");
-            res.sendStatus(404); 
-        }  
-
-    }) 
+    })
 })
 // DEVOLVE INFORMACAO DA SESSAO
 router.get('/:id', function (req, res, next) {
@@ -135,6 +144,7 @@ router.get('/:id', function (req, res, next) {
         if (err) 
             throw err;
         
+
         var marker = new ObjectId(req.params.id)
         var db = client.db('app_azulejos');
 
@@ -144,12 +154,132 @@ router.get('/:id', function (req, res, next) {
             if (findErr) 
                 throw findErr;
             
+
             client.close();
             res.send(doc);
         })
     })
 
 })
+
+router.put('/:id', function(req,res,next){
+    mongo.connect
+})
+
+// Creates session
+router.post('/sessoes', function (req, res, next) {
+    uploadPhotos(req.body.azulejos);
+    mongo.connect(process.env.DB_CONNECTION, {
+        useUnifiedTopology: true
+    }, function (err, client) {
+        if (err) 
+            throw err;
+        
+
+        var sessionID = new ObjectId(req.body.sessao._id);
+        var userID = new ObjectId(req.body.sessao.idAutor);
+        var db = client.db('app_azulejos');
+
+        db.collection("azulejos_sessoes").insertOne({
+            "_id": sessionID,
+            "data": new Date().toISOString(),
+            "estado": req.body.sessao.estado,
+            "info": req.body.sessao.info,
+            "idAutor": userID,
+            "azulejos": req.body.sessao.azulejos
+        }, function (findErr, doc) {
+            if (findErr) 
+                throw findErr;
+            
+
+            var documents = [];
+            for (var i in req.body.azulejos) {
+                var azulejo = req.body.azulejos[i];
+                var document = {
+                    "_id": new ObjectId(azulejo._id),
+                    "Nome": azulejo.Nome,
+                    "Ano": azulejo.Ano,
+                    "Info": azulejo.Info,
+                    "Condicao": azulejo.Condicao,
+                    "Sessao": sessionID,
+                    "Localizacao": {
+                        "type": "Point",
+                        "coordinates": azulejo.Localizacao
+                    }
+                }
+                documents.push(document);
+            }
+            console.log(documents)
+            db.collection("azulejos_info").insertMany(documents, function (findErr, doc) {
+                if (findErr) 
+                    throw findErr;
+                
+
+                console.log(doc)
+                client.close();
+            });
+        })
+        res.send("done")
+    })
+})
+
+function uploadPhotos(azulejos) {
+
+    var teste = []
+    var body;
+    for (const j in azulejos) {
+        var filePathArray = [];
+        for (var i in azulejos[j].Files) {
+
+            const imageBuffer = new Buffer(azulejos[j].Files[i], "base64");
+            const filePath = "./temporary_uploads/" + azulejos[j]._id + "-" + i + ".jpg";
+            filePathArray.push(filePath);
+            fs.writeFileSync(filePath, imageBuffer);
+        }
+        for (const i in filePathArray) {
+            console.log(filePathArray[i])
+
+            fs.readFile(filePathArray[i], function (err, data) {
+                if (err) 
+                    throw err;
+                
+
+                console.log(filePathArray[i])
+                var options = {
+                    'method': 'PUT',
+                    'hostname': 'storage.bunnycdn.com',
+                    'path': '/azulejos/' + azulejos[j]._id + '/' + i + '.jpg?AccessKey=' + process.env.ACCESS_KEY,
+                    'headers': {
+                        'Content-Type': 'image/jpeg'
+                    }
+                };
+                var reqBunny = https.request(options, function (resBunny) {
+                    var chunks = [];
+
+                    resBunny.on("data", function (chunk) {
+                        chunks.push(chunk);
+                    });
+                    resBunny.on("end", function (chunk) {
+                        body = Buffer.concat(chunks);
+                        teste.push(body.toString());
+
+                    });
+                    resBunny.on("error", function (error) {
+                        res.send(error);
+                    });
+                });
+                reqBunny.write(data);
+                reqBunny.end();
+            });
+        }
+    }
+
+
+}
+module.exports = router;
+
+// Deprecated routes
+
 // INSERE UM AZULEJO NA BASE DE DADOS E AS RESPETIVAS IMAGENS NO BUNNYCDN
 /* router.post('/sessoes/azulejos', function(req,res,next){
     var filePathArray = [];
@@ -216,111 +346,3 @@ router.get('/:id', function (req, res, next) {
         })          
     })
 }) */
-
-
-router.post('/sessoes', function (req, res, next) {
-    uploadPhotos(req.body.azulejos);
-    mongo.connect(process.env.DB_CONNECTION, {
-        useUnifiedTopology: true
-    }, function (err, client) {
-        if (err) 
-            throw err;
-        
-        var sessionID = new ObjectId(req.body.sessao._id);
-        var userID = new ObjectId(req.body.sessao.idAutor);
-        var db = client.db('app_azulejos');
-
-        db.collection("azulejos_sessoes").insertOne({
-            "_id": sessionID,
-            "data": new Date().toISOString(),
-            "estado": req.body.sessao.estado,
-            "info": req.body.sessao.info,
-            "idAutor": userID,
-            "azulejos": req.body.sessao.azulejos
-        }, function (findErr, doc) {
-            if (findErr) 
-                throw findErr;
-            
-            var documents = [];
-            for (var i in req.body.azulejos) {
-                var azulejo = req.body.azulejos[i];
-                var document = {
-                    "_id": new ObjectId(azulejo._id),
-                    "Nome": azulejo.Nome,
-                    "Ano": azulejo.Ano,
-                    "Info": azulejo.Info,
-                    "Condicao": azulejo.Condicao,
-                    "Sessao": sessionID,
-                    "Localizacao": {
-                        "type": "Point",
-                        "coordinates": azulejo.Localizacao
-                    }
-                }
-                documents.push(document);
-            }
-            console.log(documents)
-            db.collection("azulejos_info").insertMany(documents, function (findErr, doc) {
-                if (findErr) 
-                    throw findErr;
-                
-                console.log(doc)
-                client.close();
-            });
-        })
-        res.send("done")
-    })
-})
-
-function uploadPhotos(azulejos) {
-
-    var teste = []
-    var body;
-    for (const j in azulejos) {
-        var filePathArray = [];
-        for (var i in azulejos[j].Files) {
-
-            const imageBuffer = new Buffer(azulejos[j].Files[i], "base64");
-            const filePath = "./temporary_uploads/" + azulejos[j]._id + "-" + i + ".jpg";
-            filePathArray.push(filePath);
-            fs.writeFileSync(filePath, imageBuffer);
-        }
-        for (const i in filePathArray) {
-            console.log(filePathArray[i])
-
-            fs.readFile(filePathArray[i], function (err, data) {
-                if (err) 
-                    throw err;
-                
-                console.log(filePathArray[i])
-                var options = {
-                    'method': 'PUT',
-                    'hostname': 'storage.bunnycdn.com',
-                    'path': '/azulejos/' + azulejos[j]._id + '/' + i + '.jpg?AccessKey=' + process.env.ACCESS_KEY,
-                    'headers': {
-                        'Content-Type': 'image/jpeg'
-                    }
-                };
-                var reqBunny = https.request(options, function (resBunny) {
-                    var chunks = [];
-
-                    resBunny.on("data", function (chunk) {
-                        chunks.push(chunk);
-                    });
-                    resBunny.on("end", function (chunk) {
-                        body = Buffer.concat(chunks);
-                        teste.push(body.toString());
-
-                    });
-                    resBunny.on("error", function (error) {
-                        res.send(error);
-                    });
-                });
-                reqBunny.write(data);
-                reqBunny.end();
-            });
-        }
-    }
-
-
-}
-module.exports = router;
