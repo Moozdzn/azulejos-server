@@ -7,6 +7,8 @@ var ObjectId = mongo.ObjectID;
 var fs = require('fs');
 const https = require('https');
 
+const translate = require("@vitalets/google-translate-api");
+
 /*
 /api/sessoes/azulejos/nome
 /api/sessoes/azulejos
@@ -23,6 +25,7 @@ router.get('/:sessoes/azulejos/nome', function (req, res, next) {
             throw err;
         
 
+
         if (req.params.sessoes == "sessoes") {
             db.collection('azulejos_info').find({}, {
                 projection: {
@@ -32,6 +35,7 @@ router.get('/:sessoes/azulejos/nome', function (req, res, next) {
                 if (findErr) 
                     throw findErr;
                 
+
 
                 client.close();
                 res.send({docs})
@@ -51,6 +55,7 @@ router.get('/:sessoes/azulejos/nome', function (req, res, next) {
                     throw findErr;
                 
 
+
                 client.close();
                 res.send({docs});
             });
@@ -65,6 +70,7 @@ router.get('/sessoes/azulejos', function (req, res, next) {
         if (err) 
             throw err;
         
+
 
         var db = client.db('app_azulejos');
         // const documents = await
@@ -96,7 +102,6 @@ router.get('/sessoes/:id', function (req, res, next) {
     }, function (err, client) {
         if (err) 
             throw err;
-        
 
         if (req.params.id != null) {
             try {
@@ -108,31 +113,31 @@ router.get('/sessoes/:id', function (req, res, next) {
                 }, function (findErr, doc) {
                     if (findErr) 
                         throw findErr;
-                    
-
                     client.close();
                     https.get('https://storage.bunnycdn.com/azulejos/' + req.params.id + '/?AccessKey=' + process.env.ACCESS_KEY, (response) => {
-
                         console.log('statusCode:', response.statusCode);
-
                         response.on('data', (d) => {
                             var json = JSON.parse(d.toString()).length
-                            doc['nrImages'] = json
-                            res.send(doc);
+                            doc['nrImages'] = json;
+                            if(req.query.lan != 'pt'){
+                                translateText(doc.Info,req.query.lan).then(response =>{
+                                    doc.Info = response.text;
+                                    res.send(doc);
+                                });
+                            } else {
+                                res.send(doc);
+                            }
                         });
-
                     }).on('error', (e) => {
                         console.error(e);
                     });
                 })
-
             } catch (e) { // res.sendStatus(500).send({error:"Internal Server error"});
             }
         } else {
             console.log('here')
             res.sendStatus(404).send({error: "Tile id cannot be undefined"});
         }
-
     })
 })
 // DEVOLVE INFORMACAO DA SESSAO
@@ -143,8 +148,6 @@ router.get('/:id', function (req, res, next) {
     }, function (err, client) {
         if (err) 
             throw err;
-        
-
         var marker = new ObjectId(req.params.id)
         var db = client.db('app_azulejos');
 
@@ -153,8 +156,6 @@ router.get('/:id', function (req, res, next) {
         }, function (findErr, doc) {
             if (findErr) 
                 throw findErr;
-            
-
             client.close();
             res.send(doc);
         })
@@ -162,9 +163,23 @@ router.get('/:id', function (req, res, next) {
 
 })
 
-router.put('/:id', function(req,res,next){
+router.put('/:id', function (req, res, next) {
     mongo.connect
 })
+
+
+
+router.get('/sessoes/azulejos/translate', function (req, res, next) {
+    
+    translateText('Hello wold','es').then(x =>{
+        res.send(x)
+    })
+})
+
+async function translateText(text,target){
+    const response = await translate(text, {to: target});
+    return response;
+}
 
 // Creates session
 router.post('/sessoes', function (req, res, next) {
@@ -175,6 +190,7 @@ router.post('/sessoes', function (req, res, next) {
         if (err) 
             throw err;
         
+
 
         var sessionID = new ObjectId(req.body.sessao._id);
         var userID = new ObjectId(req.body.sessao.idAutor);
@@ -191,6 +207,7 @@ router.post('/sessoes', function (req, res, next) {
             if (findErr) 
                 throw findErr;
             
+
 
             var documents = [];
             for (var i in req.body.azulejos) {
@@ -214,6 +231,7 @@ router.post('/sessoes', function (req, res, next) {
                 if (findErr) 
                     throw findErr;
                 
+
 
                 console.log(doc)
                 client.close();
@@ -243,6 +261,7 @@ function uploadPhotos(azulejos) {
                 if (err) 
                     throw err;
                 
+
 
                 console.log(filePathArray[i])
                 var options = {
