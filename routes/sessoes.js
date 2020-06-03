@@ -53,8 +53,6 @@ router.get('/:sessoes/azulejos/nome', function (req, res, next) {
             }).toArray(function (findErr, docs) {
                 if (findErr) 
                     throw findErr;
-                
-
 
                 client.close();
                 res.send({docs});
@@ -69,8 +67,6 @@ router.get('/sessoes/azulejos', function (req, res, next) {
     }, function (err, client) {
         if (err) 
             throw err;
-        
-
 
         var db = client.db('app_azulejos');
         // const documents = await
@@ -121,6 +117,7 @@ router.get('/sessoes/:id', function (req, res, next) {
                             doc['nrImages'] = json;
                             if(req.query.lan != 'pt'){
                                 translateText(doc.Info,req.query.lan).then(response =>{
+                                    doc['InfoOriginal'] = doc.Info;
                                     doc.Info = response.text;
                                     res.send(doc);
                                 });
@@ -292,8 +289,6 @@ function uploadPhotos(azulejos) {
             });
         }
     }
-
-
 }
 module.exports = router;
 
