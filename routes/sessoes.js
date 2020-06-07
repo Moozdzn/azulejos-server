@@ -119,6 +119,7 @@ router.get('/sessoes/:id', function (req, res, next) {
                                 translateText(doc.Info,req.query.lan).then(response =>{
                                     doc['InfoOriginal'] = doc.Info;
                                     doc.Info = response.text;
+                                    console.log(doc);
                                     res.send(doc);
                                 });
                             } else {
@@ -186,39 +187,35 @@ router.post('/sessoes', function (req, res, next) {
     }, function (err, client) {
         if (err) 
             throw err;
-        
-
-
-        var sessionID = new ObjectId(req.body.sessao._id);
+    
+        var sessionID = new ObjectId(req.body.sessao.id);
         var userID = new ObjectId(req.body.sessao.idAutor);
+        console.log(req.body.sessao.tiles);
         var db = client.db('app_azulejos');
 
         db.collection("azulejos_sessoes").insertOne({
             "_id": sessionID,
             "data": new Date().toISOString(),
-            "estado": req.body.sessao.estado,
-            "info": req.body.sessao.info,
+            "estado": req.body.sessao.state,
+            "info": req.body.sessao.name,
             "idAutor": userID,
-            "azulejos": req.body.sessao.azulejos
+            "azulejos": req.body.sessao.tiles
         }, function (findErr, doc) {
             if (findErr) 
                 throw findErr;
-            
-
-
             var documents = [];
             for (var i in req.body.azulejos) {
                 var azulejo = req.body.azulejos[i];
                 var document = {
-                    "_id": new ObjectId(azulejo._id),
-                    "Nome": azulejo.Nome,
-                    "Ano": azulejo.Ano,
-                    "Info": azulejo.Info,
-                    "Condicao": azulejo.Condicao,
+                    "_id": new ObjectId(azulejo.id),
+                    "Nome": azulejo.name,
+                    "Ano": azulejo.year,
+                    "Info": azulejo.info,
+                    "Condicao": azulejo.condition,
                     "Sessao": sessionID,
                     "Localizacao": {
                         "type": "Point",
-                        "coordinates": azulejo.Localizacao
+                        "coordinates": azulejo.location
                     }
                 }
                 documents.push(document);
@@ -234,20 +231,20 @@ router.post('/sessoes', function (req, res, next) {
                 client.close();
             });
         })
-        res.send("done")
+        res.status(200).json({content: 'done'});
     })
 })
 
 function uploadPhotos(azulejos) {
-
     var teste = []
     var body;
     for (const j in azulejos) {
         var filePathArray = [];
-        for (var i in azulejos[j].Files) {
-
-            const imageBuffer = new Buffer(azulejos[j].Files[i], "base64");
-            const filePath = "./temporary_uploads/" + azulejos[j]._id + "-" + i + ".jpg";
+        for (var i in azulejos[j].nrImages) {
+            console.log(azulejos[j].id);
+            const imageBuffer = new Buffer(azulejos[j].nrImages[i], "base64");
+            console.log(azulejos[j].id)
+            const filePath = "./temporary_uploads/" + azulejos[j].id + "-" + i + ".jpg";
             filePathArray.push(filePath);
             fs.writeFileSync(filePath, imageBuffer);
         }
@@ -257,14 +254,10 @@ function uploadPhotos(azulejos) {
             fs.readFile(filePathArray[i], function (err, data) {
                 if (err) 
                     throw err;
-                
-
-
-                console.log(filePathArray[i])
                 var options = {
                     'method': 'PUT',
                     'hostname': 'storage.bunnycdn.com',
-                    'path': '/azulejos/' + azulejos[j]._id + '/' + i + '.jpg?AccessKey=' + process.env.ACCESS_KEY,
+                    'path': '/azulejos/' + azulejos[j].id + '/' + i + '.jpg?AccessKey=' + process.env.ACCESS_KEY,
                     'headers': {
                         'Content-Type': 'image/jpeg'
                     }
